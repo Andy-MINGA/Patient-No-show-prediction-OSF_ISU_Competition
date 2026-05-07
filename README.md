@@ -266,9 +266,12 @@ For tabular datasets with categorical predictors and no text or image inputs, gr
 ## 10. Repository Structure
 
 ```
-├── ISU_Competition_v4_commented.ipynb   # Fully commented production notebook
-├── README.md                            # This file
-└── train.csv  and test.csv              # training and testing datasets
+├── ISU_Competition_v4.ipynb   # Fully commented production notebook [View notebook on Kaggle](https://www.kaggle.com/code/andyandyminga/isu-competition-v4)
+├── README.md                  # This file
+└── Data                       # Full description of the datasets only
+                               # The datasets used in this project are proprietary to OSF HealthCare and Illinois State University
+                               # and were provided exclusively to registered participants of the ISU Data Science Competition (2026).
+                               # They are not available for public distribution and are therefore not included in this repository.
 ```
 
 ---

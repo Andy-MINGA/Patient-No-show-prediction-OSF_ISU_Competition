@@ -318,5 +318,5 @@ MSc in Applied Statistics, Illinois State University
 [LinkedIn](https://www.linkedin.com/in/andy-minga-684364175/) · andyminga2@gmail.com
 
 Built for the **OSF HealthCare × Illinois State University Data Science Competition** (2026).  
-Final Leaderboard AUC: **0.7810** — placing just **0.00185** behind the winner (0.78285).  
+Final Leaderboard AUC: **0.7810**; placing just **0.00185** behind the winner (0.78285).  
 If you found this useful or have questions, feel free to reach out or open an issue.

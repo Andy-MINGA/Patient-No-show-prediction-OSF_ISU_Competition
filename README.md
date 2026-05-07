@@ -143,9 +143,7 @@ The most important features in this dataset turned out to be **interactions**, n
 LightGBM trained on the full training set was used to rank all features after engineering. The chart below shows the top 25 and bottom 10:
 
 ```
-Top 25 Features:
-------------------------------------------------------------
-Engineered Interaction Features
+Engineered Interaction Features:
 The most predictive features in the model were interactions, not raw variables. The top 4 features by LightGBM importance were all engineered. Every interaction below was constructed from a clinical hypothesis about what should theoretically drive no-show behavior:
 Feature	Formula	Clinical Rationale
 `age_x_leadtime` ⭐ #1	`AGE_CATEGORY × DAYS_BETWEEN_CATEGORY`	Younger patients who scheduled far in advance are the highest-risk group — youth combined with a long scheduling gap creates the strongest no-show signal in the dataset
@@ -161,10 +159,7 @@ Feature	Formula	Clinical Rationale
 `mychart_x_leadtime`	`MYCHART_ACTIVATED × DAYS_BETWEEN`	Tests whether having an active patient portal (MyChart) reduces the risk of forgetting a far-out appointment — digital engagement as a protective factor against no-shows
 `mychart_x_noshowhistory`	`MYCHART_ACTIVATED × PATIENT_NOSHOWRATE`	Does portal activation modify the effect of a bad no-show history? Tests whether digital engagement can partially counteract personal behavioral risk
 `acute_x_noshowhistory`	`ANY_ACUTE_CARE × PATIENT_NOSHOWRATE`	A patient with recent ED or inpatient visits combined with a bad no-show history — complex health status paired with unreliable attendance behavior
----
-6. Feature Importance
-LightGBM trained on the full training set confirmed the hypothesis that interaction features outperform raw variables — the top 4 features were all engineered:
-```
+
 Top 25 Features (LightGBM on full training set):
 ------------------------------------------------------------
  1. age_x_leadtime                        2420  ██████████████████████████

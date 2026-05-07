@@ -22,9 +22,9 @@
 
 ## 1. The Problem & Why It Matters
 
-Every year, **millions of scheduled medical appointments go unfulfilled** — patients who book a slot and simply never show up, without cancelling in advance. This is not a minor inconvenience. In a healthcare system already strained by resource constraints, a missed appointment means:
+Every year, **millions of scheduled medical appointments go unfulfilled**, patients who book a slot and simply never show up, without cancelling in advance. This is not a minor inconvenience. In a healthcare system already strained by resource constraints, a missed appointment means:
 
-- A physician's time wasted — a time slot that could have been given to another patient in need
+- A physician's time wasted, a time slot that could have been given to another patient in need
 - Increased healthcare costs passed on to payers and patients
 - Delayed care for sick patients who could not get an earlier slot
 - Disrupted clinical workflows and staff scheduling
@@ -47,7 +47,7 @@ This is a high-stakes, real-world machine learning problem with genuine healthca
 | **Predictors** | 20 categorical features |
 | **Class imbalance** | ~5% no-show rate — a highly imbalanced binary classification task |
 
-The competition challenged participants to apply data science, predictive modeling, and rigorous evaluation techniques to a real clinical dataset. Participants were not given raw patient data — all variables were pre-categorized and anonymized by OSF HealthCare.
+The competition challenged participants to apply data science, predictive modeling, and rigorous evaluation techniques to a real clinical dataset. Participants were not given raw patient data; all variables were pre-categorized and anonymized by OSF HealthCare.
 
 ---
 
@@ -65,7 +65,7 @@ The dataset contains **20 categorical predictor columns** derived from appointme
 | **Department signals** | `DEPT_NOSHOW_RATE_CATEGORY`, `DEPT_AVG_APPT2DOC_CATEGORY`, `DEPT_AVG_ROOM2DOC_CATEGORY` |
 | **Digital engagement** | `MYCHART_STATUS` (patient portal usage) |
 
-> **Note on class imbalance:** With only ~5% of appointments being no-shows, standard accuracy is a misleading metric. ROC-AUC is the correct measure here because it evaluates discrimination across all classification thresholds — a model that predicts 0 for every row would score 100% accuracy but 0.50 AUC.
+> **Note on class imbalance:** With only ~5% of appointments being no-shows, standard accuracy is a misleading metric. ROC-AUC is the correct measure here because it evaluates discrimination across all classification thresholds; a model that predicts 0 for every row would score 100% accuracy but 0.50 AUC.
 
 ---
 
@@ -145,6 +145,28 @@ LightGBM trained on the full training set was used to rank all features after en
 ```
 Top 25 Features:
 ------------------------------------------------------------
+Engineered Interaction Features
+The most predictive features in the model were interactions, not raw variables. The top 4 features by LightGBM importance were all engineered. Every interaction below was constructed from a clinical hypothesis about what should theoretically drive no-show behavior:
+Feature	Formula	Clinical Rationale
+`age_x_leadtime` ⭐ #1	`AGE_CATEGORY × DAYS_BETWEEN_CATEGORY`	Younger patients who scheduled far in advance are the highest-risk group — youth combined with a long scheduling gap creates the strongest no-show signal in the dataset
+`leadtime_x_composite` ⭐ #2	`DAYS_BETWEEN_CATEGORY × composite_risk_score`	A long scheduling gap only meaningfully increases risk when the patient is already risky across multiple dimensions — this interaction captures that compounding effect
+`dept_wait_x_prov_wait` ⭐ #3	`DEPT_AVG_APPT2DOC × PROV_AVG_APPT2DOC`	A slow department AND a slow provider create a compounded waiting experience — patients face the longest total time burden and are most likely to disengage
+`prov_wait_x_length` ⭐ #4	`PROV_AVG_APPT2DOC × LENGTH`	A long appointment with a slow provider combines a long wait to be seen with a long appointment time — maximum scheduling friction
+`composite_risk_score`	`PATIENT_NOSHOWRATE + DEPT_NOSHOW_RATE + PROV_NOSHOWRATE`	Sums three independent no-show rate ordinal scores into one aggregate — high when patient history, department tendency, and provider tendency all point toward risk simultaneously
+`max_risk_signal`	`max(PATIENT_NOSHOWRATE, DEPT_NOSHOW_RATE, PROV_NOSHOWRATE)`	Captures extreme risk from a single dimension — useful when one factor is very high even if the others are moderate
+`pt_wait_vs_dept`	`PATIENT_AVG_APPT2DOC − DEPT_AVG_APPT2DOC`	Does this patient personally wait longer than the department average? A positive value flags scheduling friction specific to this individual, beyond what the department normally produces
+`room2doc_x_length`	`DEPT_AVG_ROOM2DOC × LENGTH`	In departments with a long room-to-doctor wait, longer appointments become even more burdensome — patients face a double time penalty before care even begins
+`leadtime_x_pt_risk`	`DAYS_BETWEEN × PATIENT_NOSHOWRATE`	A patient with a bad personal no-show history booking far in advance — their unreliability is amplified by the long scheduling gap
+`pt_x_dept_risk`	`PATIENT_NOSHOWRATE × DEPT_NOSHOW_RATE`	A personally unreliable patient in a department with high aggregate no-show rates — behavioral and environmental risk stacking together
+`mychart_x_leadtime`	`MYCHART_ACTIVATED × DAYS_BETWEEN`	Tests whether having an active patient portal (MyChart) reduces the risk of forgetting a far-out appointment — digital engagement as a protective factor against no-shows
+`mychart_x_noshowhistory`	`MYCHART_ACTIVATED × PATIENT_NOSHOWRATE`	Does portal activation modify the effect of a bad no-show history? Tests whether digital engagement can partially counteract personal behavioral risk
+`acute_x_noshowhistory`	`ANY_ACUTE_CARE × PATIENT_NOSHOWRATE`	A patient with recent ED or inpatient visits combined with a bad no-show history — complex health status paired with unreliable attendance behavior
+---
+6. Feature Importance
+LightGBM trained on the full training set confirmed the hypothesis that interaction features outperform raw variables — the top 4 features were all engineered:
+```
+Top 25 Features (LightGBM on full training set):
+------------------------------------------------------------
  1. age_x_leadtime                        2420  ██████████████████████████
  2. leadtime_x_composite                  2407  ██████████████████████████
  3. dept_wait_x_prov_wait                 2075  ██████████████████████
@@ -160,20 +182,18 @@ Top 25 Features:
 13. LENGTH                                1421  ███████████████
 14. DAYS_BETWEEN_CATEGORY                 1320  ██████████████
 15. room2doc_x_length                     1281  █████████████
-...
+16. DEPT_AVG_APPT2DOC_CATEGORY            1250  █████████████
+17. PROV_NOSHOWRATE_CATEGORY              1208  ████████████
+18. max_risk_signal                       1146  ████████████
+19. DEPT_AVG_ROOM2DOC_CATEGORY            1112  ████████████
+20. age_x_lead_x_risk                     1112  ████████████
+21. prov_x_lead_x_pt                      1086  ████████████
+22. DEPT_NOSHOW_RATE_CATEGORY             1073  ████████████
+23. PATIENT_AVG_APPT2DOC_CATEGORY         1051  ████████████
+24. VISIT_TYPE                            1021  ████████████
+25. mychart_x_leadtime                     976  ███████████
 
-Bottom 10 Features (zero or near-zero importance — dropped):
-------------------------------------------------------------
-  pt_x_dept_risk                           494
-  leadtime_x_pt_risk                       485
-  any_acute_care                           381
-  PATIENT_NOSHOWRATE_CATEGORY              201
-  mychart_x_noshowhistory                  160
-  acute_x_noshowhistory                    104
-  is_late_afternoon                          0
-  is_early_morning                           0
-  is_friday                                  0
-  is_monday                                  0
+
 ```
 
 **Key finding:** `PATIENT_NOSHOWRATE_CATEGORY` — theoretically the strongest clinical predictor of no-show behavior — ranked near the bottom. Investigation revealed the variable was encoded at only 2 levels (`"No History of No Show"` vs ``"Greater Than Zero %"`), which is too coarse to be meaningful. This is a real-world data science challenge: the most important domain variable was the least informative as delivered.
@@ -303,9 +323,9 @@ Cell 11 generates `submission_v4_final.csv` and triggers a browser download auto
 ## Author
 
 **[Andy MINGA]**  
-[MSc in Applied Statistics, Illinois State University]  
-[https://www.linkedin.com/in/andy-minga-684364175/]   
-[andyminga2@gmail.com]
+MSc in Applied Statistics, Illinois State University  
+https://www.linkedin.com/in/andy-minga-684364175/   
+andyminga2@gmail.com
 
 Built for the **OSF HealthCare × Illinois State University Data Science Competition** (2026).  
 Final Leaderboard AUC: **0.7810**, placing just **0.00185** behind the winner (0.78285)  

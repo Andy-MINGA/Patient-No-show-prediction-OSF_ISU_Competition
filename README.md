@@ -23,14 +23,14 @@
 
 ## 1. The Problem & Why It Matters
 
-Every year, **millions of scheduled medical appointments go unfulfilled** — patients who book a slot and simply never show up, without cancelling in advance. This is not a minor inconvenience. In a healthcare system already strained by resource constraints, a missed appointment means:
+Every year, **millions of scheduled medical appointments go unfulfilled**; patients who book a slot and simply never show up, without cancelling in advance. This is not a minor inconvenience. In a healthcare system already strained by resource constraints, a missed appointment means:
 
-- A physician's time wasted — a time slot that could have been given to another patient in need
+- A physician's time wasted, a time slot that could have been given to another patient in need
 - Increased healthcare costs passed on to payers and patients
 - Delayed care for sick patients who could not get an earlier slot
 - Disrupted clinical workflows and staff scheduling
 
-For OSF HealthCare, a major regional health system in Illinois, reducing no-show rates has direct and measurable impact on patient outcomes and operational efficiency. **If we can predict, before appointment day, which patients are likely to no-show — we can intervene.** That intervention might be a reminder call, a double-booking strategy, or a proactive outreach program. The model does not replace the clinician's judgment; it sharpens where to focus limited resources.
+For OSF HealthCare, a major regional health system in Illinois, reducing no-show rates has direct and measurable impact on patient outcomes and operational efficiency. **If we can predict, before appointment day, which patients are likely to no-show, we can intervene.** That intervention might be a reminder call, a double-booking strategy, or a proactive outreach program. The model does not replace the clinician's judgment; it sharpens where to focus limited resources.
 
 This is a high-stakes, real-world machine learning problem with genuine healthcare consequences.
 
@@ -48,7 +48,7 @@ This is a high-stakes, real-world machine learning problem with genuine healthca
 | **Predictors** | 20 categorical features |
 | **Class imbalance** | ~5% no-show rate — a highly imbalanced binary classification task |
 
-The competition challenged participants to apply data science, predictive modeling, and rigorous evaluation techniques to a real clinical dataset. Participants were not given raw patient data — all variables were pre-categorized and anonymized by OSF HealthCare.
+The competition challenged participants to apply data science, predictive modeling, and rigorous evaluation techniques to a real clinical dataset. Participants were not given raw patient data; all variables were pre-categorized and anonymized by OSF HealthCare.
 
 ---
 
@@ -66,7 +66,7 @@ The dataset contains **20 categorical predictor columns** derived from appointme
 | **Department signals** | `DEPT_NOSHOW_RATE_CATEGORY`, `DEPT_AVG_APPT2DOC_CATEGORY`, `DEPT_AVG_ROOM2DOC_CATEGORY` |
 | **Digital engagement** | `MYCHART_STATUS` (patient portal usage) |
 
-> **Note on class imbalance:** With only ~5% of appointments being no-shows, standard accuracy is a misleading metric. ROC-AUC is the correct measure here because it evaluates discrimination across all classification thresholds — a model that predicts 0 for every row would score 100% accuracy but 0.50 AUC.
+> **Note on class imbalance:** With only ~5% of appointments being no-shows, standard accuracy is a misleading metric. ROC-AUC is the correct measure here because it evaluates discrimination across all classification thresholds; a model that predicts 0 for every row would score 100% accuracy but 0.50 AUC.
 
 ---
 
@@ -104,7 +104,7 @@ The solution is a **two-layer stacking ensemble** built entirely without data le
 
 ### Why This Architecture?
 
-**Out-of-Fold predictions** prevent meta-learner leakage. If we trained base models on the full training set and fed their predictions to a meta-learner, it would see predictions made on data it was trained on — a form of leakage that produces an overconfident second layer. OOF predictions ensure every sample is predicted by a model that never saw it, matching the generalization condition of the test set.
+**Out-of-Fold predictions** prevent meta-learner leakage. If we trained base models on the full training set and fed their predictions to a meta-learner, it would see predictions made on data it was trained on, a form of leakage that produces an overconfident second layer. OOF predictions ensure every sample is predicted by a model that never saw it, matching the generalization condition of the test set.
 
 **Diversity of base models** is critical. LightGBM, XGBoost, and CatBoost all use gradient boosting but differ in how they handle splits, regularization, and categorical features. Random Forest uses bagging instead of sequential residual fitting. Because they make different errors, combining them reduces overall prediction variance.
 
@@ -114,26 +114,26 @@ The solution is a **two-layer stacking ensemble** built entirely without data le
 
 ## 5. Feature Engineering
 
-All 20 raw features are categorical strings. The preprocessing pipeline — applied **inside every cross-validation fold** to prevent leakage — performs three encoding steps before feature engineering begins.
+All 20 raw features are categorical strings. The preprocessing pipeline, applied **inside every cross-validation fold** to prevent leakage, performs three encoding steps before feature engineering begins.
 
-### Step 1 — Ordinal Encoding
+### Step 1 : Ordinal Encoding
 
 Columns with a meaningful natural order (e.g., wait-time bands, age groups, no-show rate tiers) are encoded with explicit integer ranks using `OrdinalEncoder` with the true ordering specified. This is critical: an arbitrary `factorize()` would assign `"Eleven+ %" = 0` and `"< One %" = 3`, destroying the signal. With proper ordering, the model can learn that higher-ranked categories carry more risk.
 
-### Step 2 — Target Encoding
+### Step 2 : Target Encoding
 
-Remaining string columns (month codes, hour codes, day-of-week codes) are encoded via `TargetEncoder` with Bayesian smoothing (`smoothing=10`). This replaces each category level with the smoothed mean of `NO_SHOW_FLG` across the training fold — so each time code becomes a numeric no-show probability rather than an arbitrary integer.
+Remaining string columns (month codes, hour codes, day-of-week codes) are encoded via `TargetEncoder` with Bayesian smoothing (`smoothing=10`). This replaces each category level with the smoothed mean of `NO_SHOW_FLG` across the training fold, so each time code becomes a numeric no-show probability rather than an arbitrary integer.
 
-### Step 3 — Engineered Interaction Features
+### Step 3 : Engineered Interaction Features
 
 The most important features in this dataset turned out to be **interactions**, not raw variables. The top four features by LightGBM importance were all engineered. Every interaction was constructed from a clinical hypothesis about what should theoretically drive no-show behavior:
 
 | Feature | Formula | Clinical Rationale |
 |---------|---------|-------------------|
-| `age_x_leadtime` ⭐ **#1** | `AGE_CATEGORY × DAYS_BETWEEN_CATEGORY` | Younger patients who scheduled far in advance are the highest-risk group — youth combined with a long scheduling gap creates the strongest no-show signal in the dataset |
-| `leadtime_x_composite` ⭐ **#2** | `DAYS_BETWEEN_CATEGORY × composite_risk_score` | A long scheduling gap only meaningfully increases risk when the patient is already risky across multiple dimensions — this interaction captures that compounding effect |
-| `dept_wait_x_prov_wait` ⭐ **#3** | `DEPT_AVG_APPT2DOC × PROV_AVG_APPT2DOC` | A slow department AND a slow provider create a compounded waiting experience — patients face the longest total time burden and are most likely to disengage |
-| `prov_wait_x_length` ⭐ **#4** | `PROV_AVG_APPT2DOC × LENGTH` | A long appointment with a slow provider combines a long wait to be seen with a long appointment time — maximum scheduling friction |
+| `age_x_leadtime`  **#1** | `AGE_CATEGORY × DAYS_BETWEEN_CATEGORY` | Younger patients who scheduled far in advance are the highest-risk group — youth combined with a long scheduling gap creates the strongest no-show signal in the dataset |
+| `leadtime_x_composite`  **#2** | `DAYS_BETWEEN_CATEGORY × composite_risk_score` | A long scheduling gap only meaningfully increases risk when the patient is already risky across multiple dimensions — this interaction captures that compounding effect |
+| `dept_wait_x_prov_wait`  **#3** | `DEPT_AVG_APPT2DOC × PROV_AVG_APPT2DOC` | A slow department AND a slow provider create a compounded waiting experience — patients face the longest total time burden and are most likely to disengage |
+| `prov_wait_x_length`  **#4** | `PROV_AVG_APPT2DOC × LENGTH` | A long appointment with a slow provider combines a long wait to be seen with a long appointment time — maximum scheduling friction |
 | `composite_risk_score` | `PATIENT_NOSHOWRATE + DEPT_NOSHOW_RATE + PROV_NOSHOWRATE` | Sums three independent no-show rate ordinal scores into one aggregate — high when patient history, department tendency, and provider tendency all point toward risk simultaneously |
 | `max_risk_signal` | `max(PATIENT_NOSHOWRATE, DEPT_NOSHOW_RATE, PROV_NOSHOWRATE)` | Captures extreme risk from a single dimension — useful when one factor is very high even if the others are moderate |
 | `pt_wait_vs_dept` | `PATIENT_AVG_APPT2DOC − DEPT_AVG_APPT2DOC` | Does this patient personally wait longer than the department average? A positive value flags scheduling friction specific to this individual, beyond what the department normally produces |
@@ -178,24 +178,11 @@ Top 25 Features (LightGBM on full training set):
 23. PATIENT_AVG_APPT2DOC_CATEGORY         1051  ████████████
 24. VISIT_TYPE                            1021  ████████████
 25. mychart_x_leadtime                     976  ███████████
-
-Bottom 10 Features (zero or near-zero importance):
-------------------------------------------------------------
-  pt_x_dept_risk                           494
-  leadtime_x_pt_risk                       485
-  any_acute_care                           381
-  PATIENT_NOSHOWRATE_CATEGORY              201
-  mychart_x_noshowhistory                  160
-  acute_x_noshowhistory                    104
-  is_late_afternoon                          0  ← dropped
-  is_early_morning                           0  ← dropped
-  is_friday                                  0  ← dropped
-  is_monday                                  0  ← dropped
 ```
 
 **Notable findings:**
 
-- `PATIENT_NOSHOWRATE_CATEGORY` — theoretically the strongest clinical predictor of no-show behavior — ranked near the bottom. Investigation revealed the variable was encoded at only 2 levels (`"No History of No Show"` vs `"Greater Than Zero %"`), which is too coarse to be meaningful. This is a real-world data science challenge: the most important domain variable was the least informative as delivered.
+- `PATIENT_NOSHOWRATE_CATEGORY` — theoretically the strongest clinical predictor of no-show behavior, ranked near the bottom. Investigation revealed the variable was encoded at only 2 levels (`"No History of No Show"` vs `"Greater Than Zero %"`), which is too coarse to be meaningful. This is a real-world data science challenge: the most important domain variable was the least informative as delivered.
 - `MONTH_CODE_freq` outranked `MONTH_CODE` itself, confirming that *how common a time slot is* carries more predictive power than *which month it is*.
 - The four binary time-of-day flags scored **exactly 0** and were dropped entirely from subsequent versions.
 
@@ -205,7 +192,7 @@ Bottom 10 Features (zero or near-zero importance):
 
 ### Hyperparameter Tuning — Optuna with Drive Persistence
 
-Each base model was tuned using **Optuna** (Bayesian optimization with a TPE sampler), with results saved to Google Drive after every model completes. This makes the pipeline fully resumable — if a Colab session disconnects mid-tuning, the next session loads the saved studies and skips already-completed models.
+Each base model was tuned using **Optuna** (Bayesian optimization with a TPE sampler), with results saved to Google Drive after every model completes. This makes the pipeline fully resumable, if a Colab session disconnects mid-tuning, the next session loads the saved studies and skips already-completed models.
 
 | Model | Trials | CV Folds | Key search space |
 |-------|--------|----------|-----------------|
@@ -215,7 +202,7 @@ Each base model was tuned using **Optuna** (Bayesian optimization with a TPE sam
 | Random Forest | 60 | 5-fold stratified | `max_depth` (capped at 15), `max_features` |
 
 **Key lessons from tuning:**
-- XGBoost `max_depth > 6` consistently collapsed AUC from ~0.772 to ~0.73 — deep trees overfit badly on this imbalanced dataset
+- XGBoost `max_depth > 6` consistently collapsed AUC from ~0.772 to ~0.73; deep trees overfit badly on this imbalanced dataset
 - LightGBM benefited significantly from `reg_alpha` and `reg_lambda` — without them, the model was fitting minority-class noise
 - CatBoost was the strongest single model across all tuning runs (best single-model OOF AUC: **0.77667**)
 
@@ -249,7 +236,7 @@ The 5 OOF arrays are stacked into a `(n_train, 5)` matrix. Polynomial features o
 | Extra Trees | 0.76866 |
 | Meta-Learner (XGB on OOF) | 0.77664 |
 | **Final Blend (50/50)** | **~0.778** |
-| **🏆 Leaderboard Score** | **0.7810** |
+| **Leaderboard Score** | **0.7810** |
 | Winner's Score | 0.78285 |
 | **Gap to 1st Place** | **0.00185** |
 
@@ -260,7 +247,7 @@ The 5 OOF arrays are stacked into a `(n_train, 5)` matrix. Polynomial features o
 ## 9. Key Design Decisions
 
 ### Preventing Data Leakage
-Every encoding transformation — ordinal encoding, target encoding, feature engineering — is fitted exclusively on the training fold and applied to the validation/test fold. Leakage is the most common source of inflated competition scores that fail to generalize; this pipeline eliminates it by design.
+Every encoding transformation — ordinal encoding, target encoding, feature engineering is fitted exclusively on the training fold and applied to the validation/test fold. Leakage is the most common source of inflated competition scores that fail to generalize; this pipeline eliminates it by design.
 
 ### Handling Class Imbalance
 With ~5% positive rate, the dataset is significantly imbalanced. Three strategies were applied:
@@ -280,9 +267,8 @@ For tabular datasets with categorical predictors and no text or image inputs, gr
 
 ```
 ├── ISU_Competition_v4_commented.ipynb   # Fully commented production notebook
-├── ISU_Competition_v5.ipynb             # v5 with upgraded search spaces & new features
 ├── README.md                            # This file
-└── sample_submission.csv                # Expected submission format (ID, NO_SHOW_FLG)
+└── train.csv  and test.csv              # training and testing datasets
 ```
 
 ---
@@ -291,24 +277,24 @@ For tabular datasets with categorical predictors and no text or image inputs, gr
 
 > **Environment:** Google Colab (free tier compatible). A GPU runtime is recommended for CatBoost and XGBoost but not required.
 
-**Step 1 — Open the notebook in Colab**  
+**Step 1 : Open the notebook in Colab**  
 Upload `ISU_Competition_v4_commented.ipynb` to Google Colab.
 
-**Step 2 — Install dependencies (Cell 1)**
+**Step 2 : Install dependencies (Cell 1)**
 ```python
 !pip install category_encoders optuna catboost -q
 ```
 
-**Step 3 — Mount Google Drive (Cell 2)**  
+**Step 3 : Mount Google Drive (Cell 2)**  
 Studies are saved to `MyDrive/ISU_Competition_v4/`. The pipeline auto-resumes from Drive on subsequent sessions.
 
-**Step 4 — Upload data (Cell 3)**  
+**Step 4 : Upload data (Cell 3)**  
 Upload `train.csv` and `test.csv` when prompted.
 
-**Step 5 — Run all cells sequentially**  
+**Step 5 : Run all cells sequentially**  
 Each cell prints progress. The full pipeline (tuning + OOF + stacking) takes approximately 4–6 hours on free Colab CPU, or 1–2 hours with a T4 GPU.
 
-**Step 6 — Download submission**  
+**Step 6 : Download submission**  
 Cell 11 generates `submission_v4_final.csv` and triggers a browser download automatically.
 
 ---

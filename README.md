@@ -1,6 +1,7 @@
 # Patient No-Show Prediction : OSF HealthCare × Illinois State University Data Science Competition
 
-> **Binary classification · ROC-AUC · Stacking Ensemble · LightGBM · XGBoost · CatBoost**
+> **Binary classification · ROC-AUC · Stacking Ensemble · LightGBM · XGBoost · CatBoost**  
+> 🏆 Final Leaderboard AUC: **0.7810**; within **0.00185** of 1st place (0.78285)
 
 ---
 
@@ -22,9 +23,9 @@
 
 ## 1. The Problem & Why It Matters
 
-Every year, **millions of scheduled medical appointments go unfulfilled**, patients who book a slot and simply never show up, without cancelling in advance. This is not a minor inconvenience. In a healthcare system already strained by resource constraints, a missed appointment means:
+Every year, **millions of scheduled medical appointments go unfulfilled** — patients who book a slot and simply never show up, without cancelling in advance. This is not a minor inconvenience. In a healthcare system already strained by resource constraints, a missed appointment means:
 
-- A physician's time wasted, a time slot that could have been given to another patient in need
+- A physician's time wasted — a time slot that could have been given to another patient in need
 - Increased healthcare costs passed on to payers and patients
 - Delayed care for sick patients who could not get an earlier slot
 - Disrupted clinical workflows and staff scheduling
@@ -47,13 +48,13 @@ This is a high-stakes, real-world machine learning problem with genuine healthca
 | **Predictors** | 20 categorical features |
 | **Class imbalance** | ~5% no-show rate — a highly imbalanced binary classification task |
 
-The competition challenged participants to apply data science, predictive modeling, and rigorous evaluation techniques to a real clinical dataset. Participants were not given raw patient data; all variables were pre-categorized and anonymized by OSF HealthCare.
+The competition challenged participants to apply data science, predictive modeling, and rigorous evaluation techniques to a real clinical dataset. Participants were not given raw patient data — all variables were pre-categorized and anonymized by OSF HealthCare.
 
 ---
 
 ## 3. Dataset
 
-The dataset contains **20 categorical predictor columns** derived from appointment and patient records. All variables were pre-binned into ordinal or nominal categories per the competition metadata. Key variable groups include:
+The dataset contains **20 categorical predictor columns** derived from appointment and patient records. All variables were pre-binned into ordinal or nominal categories per the competition metadata.
 
 | Category | Variables |
 |----------|-----------|
@@ -65,7 +66,7 @@ The dataset contains **20 categorical predictor columns** derived from appointme
 | **Department signals** | `DEPT_NOSHOW_RATE_CATEGORY`, `DEPT_AVG_APPT2DOC_CATEGORY`, `DEPT_AVG_ROOM2DOC_CATEGORY` |
 | **Digital engagement** | `MYCHART_STATUS` (patient portal usage) |
 
-> **Note on class imbalance:** With only ~5% of appointments being no-shows, standard accuracy is a misleading metric. ROC-AUC is the correct measure here because it evaluates discrimination across all classification thresholds; a model that predicts 0 for every row would score 100% accuracy but 0.50 AUC.
+> **Note on class imbalance:** With only ~5% of appointments being no-shows, standard accuracy is a misleading metric. ROC-AUC is the correct measure here because it evaluates discrimination across all classification thresholds — a model that predicts 0 for every row would score 100% accuracy but 0.50 AUC.
 
 ---
 
@@ -75,7 +76,7 @@ The solution is a **two-layer stacking ensemble** built entirely without data le
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        LAYER 1 — BASE MODELS                 │
+│                    LAYER 1 — BASE MODELS                     │
 │                                                               │
 │   LightGBM ──┐                                               │
 │   XGBoost  ──┤                                               │
@@ -86,7 +87,7 @@ The solution is a **two-layer stacking ensemble** built entirely without data le
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                       LAYER 2 — META-LEARNER                 │
+│                   LAYER 2 — META-LEARNER                     │
 │                                                               │
 │   XGBoost on OOF predictions + polynomial interactions       │
 │   (shallow: max_depth 2–4 to prevent overfitting)            │
@@ -113,53 +114,43 @@ The solution is a **two-layer stacking ensemble** built entirely without data le
 
 ## 5. Feature Engineering
 
-All 20 raw features are categorical strings. The preprocessing pipeline — applied **inside every cross-validation fold** to prevent leakage — performs three encoding steps before feature engineering begins:
+All 20 raw features are categorical strings. The preprocessing pipeline — applied **inside every cross-validation fold** to prevent leakage — performs three encoding steps before feature engineering begins.
 
 ### Step 1 — Ordinal Encoding
-Columns with a meaningful natural order (e.g., wait-time bands, age groups, no-show rate tiers) are encoded with explicit integer ranks using `OrdinalEncoder` with the true ordering specified. This is critical: an arbitrary factorize would assign `"Eleven+ %" = 0` and `"< One %" = 3`, destroying the signal. With proper ordering, the model can learn that higher-ranked categories carry more risk.
+
+Columns with a meaningful natural order (e.g., wait-time bands, age groups, no-show rate tiers) are encoded with explicit integer ranks using `OrdinalEncoder` with the true ordering specified. This is critical: an arbitrary `factorize()` would assign `"Eleven+ %" = 0` and `"< One %" = 3`, destroying the signal. With proper ordering, the model can learn that higher-ranked categories carry more risk.
 
 ### Step 2 — Target Encoding
-Remaining string columns (month names, hour codes, day-of-week codes) are encoded via `TargetEncoder` with Bayesian smoothing (`smoothing=10`). This replaces each category level with the smoothed mean of `NO_SHOW_FLG` across the training fold — so `"Monday"` becomes a numeric no-show probability rather than an arbitrary integer.
+
+Remaining string columns (month codes, hour codes, day-of-week codes) are encoded via `TargetEncoder` with Bayesian smoothing (`smoothing=10`). This replaces each category level with the smoothed mean of `NO_SHOW_FLG` across the training fold — so each time code becomes a numeric no-show probability rather than an arbitrary integer.
 
 ### Step 3 — Engineered Interaction Features
 
-The most important features in this dataset turned out to be **interactions**, not raw variables. The top two features by LightGBM importance were both engineered:
+The most important features in this dataset turned out to be **interactions**, not raw variables. The top four features by LightGBM importance were all engineered. Every interaction was constructed from a clinical hypothesis about what should theoretically drive no-show behavior:
 
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `age_x_leadtime` | `AGE_CATEGORY × DAYS_BETWEEN_CATEGORY` | Younger patients with long scheduling gaps are disproportionately high-risk |
-| `leadtime_x_composite` | `DAYS_BETWEEN_CATEGORY × composite_risk_score` | Long wait combined with high composite risk is the strongest combined signal |
-| `dept_wait_x_prov_wait` | `DEPT_AVG_APPT2DOC × PROV_AVG_APPT2DOC` | Departments and providers with long wait times compound each other |
-| `prov_wait_x_length` | `PROV_AVG_APPT2DOC × LENGTH` | Long appointments with slow providers signal scheduling friction |
-| `composite_risk_score` | `sum(patient_risk, dept_risk, prov_risk)` | Aggregate risk when multiple dimensions are simultaneously elevated |
-| `wait_x_composite_risk` | `DAYS_BETWEEN × composite_risk_score` | High-risk patients who booked far in advance |
-| `pt_wait_vs_dept` | Patient wait deviation from department average | Captures whether this patient consistently waits longer than typical |
-| `MONTH_CODE_freq` | Frequency of each month code in training data | Encodes how common each time slot is — rarer slots may signal unusual appointment types |
+| Feature | Formula | Clinical Rationale |
+|---------|---------|-------------------|
+| `age_x_leadtime` ⭐ **#1** | `AGE_CATEGORY × DAYS_BETWEEN_CATEGORY` | Younger patients who scheduled far in advance are the highest-risk group — youth combined with a long scheduling gap creates the strongest no-show signal in the dataset |
+| `leadtime_x_composite` ⭐ **#2** | `DAYS_BETWEEN_CATEGORY × composite_risk_score` | A long scheduling gap only meaningfully increases risk when the patient is already risky across multiple dimensions — this interaction captures that compounding effect |
+| `dept_wait_x_prov_wait` ⭐ **#3** | `DEPT_AVG_APPT2DOC × PROV_AVG_APPT2DOC` | A slow department AND a slow provider create a compounded waiting experience — patients face the longest total time burden and are most likely to disengage |
+| `prov_wait_x_length` ⭐ **#4** | `PROV_AVG_APPT2DOC × LENGTH` | A long appointment with a slow provider combines a long wait to be seen with a long appointment time — maximum scheduling friction |
+| `composite_risk_score` | `PATIENT_NOSHOWRATE + DEPT_NOSHOW_RATE + PROV_NOSHOWRATE` | Sums three independent no-show rate ordinal scores into one aggregate — high when patient history, department tendency, and provider tendency all point toward risk simultaneously |
+| `max_risk_signal` | `max(PATIENT_NOSHOWRATE, DEPT_NOSHOW_RATE, PROV_NOSHOWRATE)` | Captures extreme risk from a single dimension — useful when one factor is very high even if the others are moderate |
+| `pt_wait_vs_dept` | `PATIENT_AVG_APPT2DOC − DEPT_AVG_APPT2DOC` | Does this patient personally wait longer than the department average? A positive value flags scheduling friction specific to this individual, beyond what the department normally produces |
+| `room2doc_x_length` | `DEPT_AVG_ROOM2DOC × LENGTH` | In departments with a long room-to-doctor wait, longer appointments become even more burdensome — patients face a double time penalty before care even begins |
+| `leadtime_x_pt_risk` | `DAYS_BETWEEN × PATIENT_NOSHOWRATE` | A patient with a bad personal no-show history booking far in advance — their unreliability is amplified by the long scheduling gap |
+| `pt_x_dept_risk` | `PATIENT_NOSHOWRATE × DEPT_NOSHOW_RATE` | A personally unreliable patient in a department with high aggregate no-show rates — behavioral and environmental risk stacking together |
+| `mychart_x_leadtime` | `MYCHART_ACTIVATED × DAYS_BETWEEN` | Tests whether having an active patient portal (MyChart) reduces the risk of forgetting a far-out appointment — digital engagement as a protective factor |
+| `mychart_x_noshowhistory` | `MYCHART_ACTIVATED × PATIENT_NOSHOWRATE` | Does portal activation modify the effect of a bad no-show history? Tests whether digital engagement can partially counteract personal behavioral risk |
+| `acute_x_noshowhistory` | `ANY_ACUTE_CARE × PATIENT_NOSHOWRATE` | A patient with recent ED or inpatient visits combined with a bad no-show history — complex health status paired with unreliable attendance behavior |
 
 ---
 
 ## 6. Feature Importance
 
-LightGBM trained on the full training set was used to rank all features after engineering. The chart below shows the top 25 and bottom 10:
+LightGBM trained on the full training set was used to rank all features after engineering. Results confirmed that **interaction features outperform raw variables** — the top four were all engineered:
 
 ```
-Engineered Interaction Features:
-The most predictive features in the model were interactions, not raw variables. The top 4 features by LightGBM importance were all engineered. Every interaction below was constructed from a clinical hypothesis about what should theoretically drive no-show behavior:
-Feature	Formula	Clinical Rationale
-`age_x_leadtime` ⭐ #1	`AGE_CATEGORY × DAYS_BETWEEN_CATEGORY`	Younger patients who scheduled far in advance are the highest-risk group — youth combined with a long scheduling gap creates the strongest no-show signal in the dataset
-`leadtime_x_composite` ⭐ #2	`DAYS_BETWEEN_CATEGORY × composite_risk_score`	A long scheduling gap only meaningfully increases risk when the patient is already risky across multiple dimensions — this interaction captures that compounding effect
-`dept_wait_x_prov_wait` ⭐ #3	`DEPT_AVG_APPT2DOC × PROV_AVG_APPT2DOC`	A slow department AND a slow provider create a compounded waiting experience — patients face the longest total time burden and are most likely to disengage
-`prov_wait_x_length` ⭐ #4	`PROV_AVG_APPT2DOC × LENGTH`	A long appointment with a slow provider combines a long wait to be seen with a long appointment time — maximum scheduling friction
-`composite_risk_score`	`PATIENT_NOSHOWRATE + DEPT_NOSHOW_RATE + PROV_NOSHOWRATE`	Sums three independent no-show rate ordinal scores into one aggregate — high when patient history, department tendency, and provider tendency all point toward risk simultaneously
-`max_risk_signal`	`max(PATIENT_NOSHOWRATE, DEPT_NOSHOW_RATE, PROV_NOSHOWRATE)`	Captures extreme risk from a single dimension — useful when one factor is very high even if the others are moderate
-`pt_wait_vs_dept`	`PATIENT_AVG_APPT2DOC − DEPT_AVG_APPT2DOC`	Does this patient personally wait longer than the department average? A positive value flags scheduling friction specific to this individual, beyond what the department normally produces
-`room2doc_x_length`	`DEPT_AVG_ROOM2DOC × LENGTH`	In departments with a long room-to-doctor wait, longer appointments become even more burdensome — patients face a double time penalty before care even begins
-`leadtime_x_pt_risk`	`DAYS_BETWEEN × PATIENT_NOSHOWRATE`	A patient with a bad personal no-show history booking far in advance — their unreliability is amplified by the long scheduling gap
-`pt_x_dept_risk`	`PATIENT_NOSHOWRATE × DEPT_NOSHOW_RATE`	A personally unreliable patient in a department with high aggregate no-show rates — behavioral and environmental risk stacking together
-`mychart_x_leadtime`	`MYCHART_ACTIVATED × DAYS_BETWEEN`	Tests whether having an active patient portal (MyChart) reduces the risk of forgetting a far-out appointment — digital engagement as a protective factor against no-shows
-`mychart_x_noshowhistory`	`MYCHART_ACTIVATED × PATIENT_NOSHOWRATE`	Does portal activation modify the effect of a bad no-show history? Tests whether digital engagement can partially counteract personal behavioral risk
-`acute_x_noshowhistory`	`ANY_ACUTE_CARE × PATIENT_NOSHOWRATE`	A patient with recent ED or inpatient visits combined with a bad no-show history — complex health status paired with unreliable attendance behavior
-
 Top 25 Features (LightGBM on full training set):
 ------------------------------------------------------------
  1. age_x_leadtime                        2420  ██████████████████████████
@@ -188,10 +179,25 @@ Top 25 Features (LightGBM on full training set):
 24. VISIT_TYPE                            1021  ████████████
 25. mychart_x_leadtime                     976  ███████████
 
-
+Bottom 10 Features (zero or near-zero importance):
+------------------------------------------------------------
+  pt_x_dept_risk                           494
+  leadtime_x_pt_risk                       485
+  any_acute_care                           381
+  PATIENT_NOSHOWRATE_CATEGORY              201
+  mychart_x_noshowhistory                  160
+  acute_x_noshowhistory                    104
+  is_late_afternoon                          0  ← dropped
+  is_early_morning                           0  ← dropped
+  is_friday                                  0  ← dropped
+  is_monday                                  0  ← dropped
 ```
 
-**Key finding:** `PATIENT_NOSHOWRATE_CATEGORY` — theoretically the strongest clinical predictor of no-show behavior — ranked near the bottom. Investigation revealed the variable was encoded at only 2 levels (`"No History of No Show"` vs ``"Greater Than Zero %"`), which is too coarse to be meaningful. This is a real-world data science challenge: the most important domain variable was the least informative as delivered.
+**Notable findings:**
+
+- `PATIENT_NOSHOWRATE_CATEGORY` — theoretically the strongest clinical predictor of no-show behavior — ranked near the bottom. Investigation revealed the variable was encoded at only 2 levels (`"No History of No Show"` vs `"Greater Than Zero %"`), which is too coarse to be meaningful. This is a real-world data science challenge: the most important domain variable was the least informative as delivered.
+- `MONTH_CODE_freq` outranked `MONTH_CODE` itself, confirming that *how common a time slot is* carries more predictive power than *which month it is*.
+- The four binary time-of-day flags scored **exactly 0** and were dropped entirely from subsequent versions.
 
 ---
 
@@ -201,14 +207,14 @@ Top 25 Features (LightGBM on full training set):
 
 Each base model was tuned using **Optuna** (Bayesian optimization with a TPE sampler), with results saved to Google Drive after every model completes. This makes the pipeline fully resumable — if a Colab session disconnects mid-tuning, the next session loads the saved studies and skips already-completed models.
 
-| Model | Trials | CV Folds (tuning) | Key search space |
-|-------|--------|-------------------|-----------------|
+| Model | Trials | CV Folds | Key search space |
+|-------|--------|----------|-----------------|
 | LightGBM | 60 | 5-fold stratified | `num_leaves`, `learning_rate`, `reg_alpha`, `reg_lambda`, `min_child_samples` |
 | XGBoost | 60 | 5-fold stratified | `max_depth` (capped at 6), `min_child_weight`, `gamma` |
 | CatBoost | 60 | 5-fold stratified | `depth`, `l2_leaf_reg`, `bagging_temperature` |
 | Random Forest | 60 | 5-fold stratified | `max_depth` (capped at 15), `max_features` |
 
-**Lessons from tuning:**
+**Key lessons from tuning:**
 - XGBoost `max_depth > 6` consistently collapsed AUC from ~0.772 to ~0.73 — deep trees overfit badly on this imbalanced dataset
 - LightGBM benefited significantly from `reg_alpha` and `reg_lambda` — without them, the model was fitting minority-class noise
 - CatBoost was the strongest single model across all tuning runs (best single-model OOF AUC: **0.77667**)
@@ -243,6 +249,9 @@ The 5 OOF arrays are stacked into a `(n_train, 5)` matrix. Polynomial features o
 | Extra Trees | 0.76866 |
 | Meta-Learner (XGB on OOF) | 0.77664 |
 | **Final Blend (50/50)** | **~0.778** |
+| **🏆 Leaderboard Score** | **0.7810** |
+| Winner's Score | 0.78285 |
+| **Gap to 1st Place** | **0.00185** |
 
 > OOF AUC is a conservative estimate. The actual leaderboard score is typically slightly higher because the test set is drawn from the same distribution.
 
@@ -260,7 +269,7 @@ With ~5% positive rate, the dataset is significantly imbalanced. Three strategie
 - Stratified K-Fold preserves the 5% no-show rate in every fold
 
 ### Persistence on Free Colab
-Optuna studies are serialized with `joblib` and saved to Google Drive after each model completes. The OOF loop saves intermediate arrays after every fold. This ensures that a Colab session timeout — which is common during long training runs — never loses more than one fold of work.
+Optuna studies are serialized with `joblib` and saved to Google Drive after each model completes. The OOF loop saves intermediate arrays after every fold. This ensures that a Colab session timeout never loses more than one fold of work.
 
 ### Why Not Neural Networks?
 For tabular datasets with categorical predictors and no text or image inputs, gradient boosted trees consistently outperform neural networks in benchmarks. The dataset has no raw text columns that would justify an embedding-based model. GBDT models also handle ordinal categoricals and missing values natively, and are far more interpretable via feature importance — which matters in a healthcare context.
@@ -282,7 +291,7 @@ For tabular datasets with categorical predictors and no text or image inputs, gr
 
 > **Environment:** Google Colab (free tier compatible). A GPU runtime is recommended for CatBoost and XGBoost but not required.
 
-**Step 1 — Open the notebook in Colab**
+**Step 1 — Open the notebook in Colab**  
 Upload `ISU_Competition_v4_commented.ipynb` to Google Colab.
 
 **Step 2 — Install dependencies (Cell 1)**
@@ -290,16 +299,16 @@ Upload `ISU_Competition_v4_commented.ipynb` to Google Colab.
 !pip install category_encoders optuna catboost -q
 ```
 
-**Step 3 — Mount Google Drive (Cell 2)**
+**Step 3 — Mount Google Drive (Cell 2)**  
 Studies are saved to `MyDrive/ISU_Competition_v4/`. The pipeline auto-resumes from Drive on subsequent sessions.
 
-**Step 4 — Upload data (Cell 3)**
+**Step 4 — Upload data (Cell 3)**  
 Upload `train.csv` and `test.csv` when prompted.
 
-**Step 5 — Run all cells sequentially**
+**Step 5 — Run all cells sequentially**  
 Each cell prints progress. The full pipeline (tuning + OOF + stacking) takes approximately 4–6 hours on free Colab CPU, or 1–2 hours with a T4 GPU.
 
-**Step 6 — Download submission**
+**Step 6 — Download submission**  
 Cell 11 generates `submission_v4_final.csv` and triggers a browser download automatically.
 
 ---
@@ -315,13 +324,13 @@ Cell 11 generates `submission_v4_final.csv` and triggers a browser download auto
 ![Google Colab](https://img.shields.io/badge/Google%20Colab-F9AB00?logo=googlecolab&logoColor=white)
 
 ---
+
 ## Author
 
-**[Andy MINGA]**  
+**Andy MINGA**  
 MSc in Applied Statistics, Illinois State University  
-https://www.linkedin.com/in/andy-minga-684364175/   
-andyminga2@gmail.com
+[LinkedIn](https://www.linkedin.com/in/andy-minga-684364175/) · andyminga2@gmail.com
 
 Built for the **OSF HealthCare × Illinois State University Data Science Competition** (2026).  
-Final Leaderboard AUC: **0.7810**, placing just **0.00185** behind the winner (0.78285)  
+Final Leaderboard AUC: **0.7810** — placing just **0.00185** behind the winner (0.78285).  
 If you found this useful or have questions, feel free to reach out or open an issue.

@@ -1,11 +1,11 @@
 # Patient No-Show Prediction : OSF HealthCare × Illinois State University Data Science Competition
 
 > **Binary classification · ROC-AUC · Stacking Ensemble · LightGBM · XGBoost · CatBoost**  
-> 🏆 Final Leaderboard AUC: **0.7810**; within **0.00185** of 1st place (0.78285)
+> Final Leaderboard AUC: **0.7810**; within **0.00185** of 1st place (0.78285)
 
 ---
 
-## 📌 Table of Contents
+## Table of Contents
 
 1. [The Problem & Why It Matters](#1-the-problem--why-it-matters)
 2. [Competition Overview](#2-competition-overview)

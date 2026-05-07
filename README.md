@@ -1,4 +1,4 @@
-# 🏥 Patient No-Show Prediction — OSF HealthCare × ISU Data Science Competition
+# Patient No-Show Prediction : OSF HealthCare × Illinois State University Data Science Competition
 
 > **Binary classification · ROC-AUC · Stacking Ensemble · LightGBM · XGBoost · CatBoost**
 
@@ -300,8 +300,13 @@ Cell 11 generates `submission_v4_final.csv` and triggers a browser download auto
 ![Google Colab](https://img.shields.io/badge/Google%20Colab-F9AB00?logo=googlecolab&logoColor=white)
 
 ---
-
 ## Author
 
-Built for the **OSF HealthCare × Illinois State University Data Science Competition**.  
+**[Andy MINGA]**  
+[MSc in Applied Statistics, Illinois State University]  
+[https://www.linkedin.com/in/andy-minga-684364175/]   
+[andyminga2@gmail.com]
+
+Built for the **OSF HealthCare × Illinois State University Data Science Competition** (2026).  
+Final Leaderboard AUC: **0.7810**, placing just **0.00185** behind the winner (0.78285)  
 If you found this useful or have questions, feel free to reach out or open an issue.

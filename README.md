@@ -266,12 +266,12 @@ For tabular datasets with categorical predictors and no text or image inputs, gr
 ## 10. Repository Structure
 
 ```
-├── ISU_Competition_v4.ipynb   # Fully commented production notebook [View notebook on Kaggle](https://www.kaggle.com/code/andyandyminga/isu-competition-v4)
-├── README.md                  # This file
-└── Data                       # Full description of the datasets only
-                               # The datasets used in this project are proprietary to OSF HealthCare and Illinois State University
-                               # and were provided exclusively to registered participants of the ISU Data Science Competition (2026).
-                               # They are not available for public distribution and are therefore not included in this repository.
+├── patient-no-show-prediction-osf-healthcare-isu.ipynb   # [View notebook on Kaggle](https://www.kaggle.com/code/andyandyminga/patient-no-show-prediction-osf-healthcare-isu)
+├── README.md                                             # This file
+└── Data                                                  # Full description of the datasets only
+                                                          # The datasets used in this project are proprietary to OSF HealthCare and Illinois State University
+                                                          # and were provided exclusively to registered participants of the ISU Data Science Competition (2026).
+                                                          # They are not available for public distribution and are therefore not included in this repository.
 ```
 
 ---
@@ -320,7 +320,7 @@ Cell 11 generates `submission_v4_final.csv` and triggers a browser download auto
 MSc in Applied Statistics, Illinois State University  
 [LinkedIn](https://www.linkedin.com/in/andy-minga-684364175/) · andyminga2@gmail.com
 
-[View notebook on Kaggle](https://www.kaggle.com/code/andyandyminga/isu-competition-v4)
+[View notebook on Kaggle](https://www.kaggle.com/code/andyandyminga/patient-no-show-prediction-osf-healthcare-isu)
 
 Built for the **OSF HealthCare × Illinois State University Data Science Competition** (2026).  
 Final Leaderboard AUC: **0.7810**; placing just **0.00185** behind the winner (0.78285).  

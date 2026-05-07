@@ -10,8 +10,8 @@ They are **not available for public distribution** and are therefore not include
 
 | File | Size | Description |
 |------|------|-------------|
-| `train.csv` | ~55 MB | Labeled training set — contains all 20 feature columns and the `NO_SHOW_FLG` target variable |
-| `test.csv` | ~37 MB | Unlabeled test set — contains the same 20 feature columns; `NO_SHOW_FLG` is what the model predicts |
+| `train.csv` | ~37 MB | Labeled training set — contains all 20 feature columns and the `NO_SHOW_FLG` target variable |
+| `test.csv` | ~55 MB | Unlabeled test set — contains the same 20 feature columns; `NO_SHOW_FLG` is what the model predicts |
 | `sample_submission.csv` | < 1 MB | Expected submission format — two columns: `ID` and `NO_SHOW_FLG` |
 
 ---
